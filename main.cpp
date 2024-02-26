@@ -2,132 +2,15 @@
 #include <vector>
 #include <random>
 #include <map>
+#include <fstream>
 
-std::ostream& operator<<(std::ostream& os, const std::vector<bool>& a) {
-    for (int i = a.size() - 1; i >= 0; --i) {
-        os << (a[i] ? '1' : '0');
-    }
-    return os;
-}
-
-int degreeVec(const std::vector<bool>& a) {
-    if (a.empty()) return -1; // Обработка пустого вектора
-    for (size_t i = a.size() - 1; i != static_cast<size_t>(-1); --i) {
-        if (a[i])
-            return static_cast<int>(i);
-    }
-    return -1;
-}
-
-void clearZeros(std::vector<bool>& a) {
-    while (!a.empty() && !a.back())
-        a.pop_back();
-}
-
-std::vector<bool> mod(const std::vector<bool>& a, const std::vector<bool>& b) {
-    std::vector<bool> remainder = a;
-
-    while (!remainder.empty() && degreeVec(remainder) >= degreeVec(b)) {
-        int shift = degreeVec(remainder) - degreeVec(b);
-
-        for (size_t i = 0; i < b.size(); ++i) {
-            if (i + shift < remainder.size())
-                remainder[i + shift] = remainder[i + shift] ^ b[i];
-        }
-    }
-    clearZeros(remainder);
-
-    return remainder;
-}
-
-bool func(const std::vector<bool>& m, const std::vector<bool>& g, const std::vector<bool>& e) {
-    // c1 = m * x^degree(g)
-    std::vector<bool> c1 = m;
-    for (int i = 0; i < degreeVec(g); ++i) c1.insert(c1.begin(), false);
-    // c = c1 mod g
-    std::vector<bool> c = mod(c1, g);
-
-    // a = c1 + c = m * x^degree(g) + ((m * x^degree(g)) mod g)
-    std::vector<bool> a = c1;
-    for (size_t i = 0; i < c.size(); ++i)
-        a[i] = c[i];
-    //std::cout << "a = " << a << std::endl;
-
-    // b = a ^ e (применение ошибок в канале)
-    std::vector<bool> b = a;
-    for (size_t i = 0; i < b.size(); ++i)
-        b[i] = b[i] ^ e[i];
-    //std::cout << "b = " << b << std::endl;
-
-    // s = b mod g (если s != {0}, то произошли ошибки в канале)
-    std::vector<bool> s = mod(b, g);
-    //std::cout << "s = " << s << std::endl;
-
-    c1.clear();
-    c.clear();
-    a.clear();
-    b.clear();
-
-    return s.empty();
-}
-
-int w(const std::vector<bool>& a){
-    int count = 0;
-    for (int i = 0; i < a.size(); i++) if (a[i]) count++;
-    return count;
-}
-
-double theory(std::map<std::vector<bool>, std::vector<bool>> codeBook, int n, double p){
-    double Nt = 0.0;
-
-    for (int i = 0; i <= n; ++i) {
-        int Ai = 0;
-        for (auto it = codeBook.begin(); it != codeBook.end(); it++){
-            if (w(it->second) == i) Ai++;
-        }
-        Nt += Ai * pow(p, i) * pow(1 - p, n - i);
-    }
-
-    return Nt;
-}
-
-std::map<std::vector<bool>, std::vector<bool>> createCodeBook(const std::vector<bool>& g){
-    std::map<std::vector<bool>, std::vector<bool>> map;
-    std::vector<bool> m;
-
-    for (int i = 0; i < 2; i++){
-        for (int j = 0; j < 2; j++){
-            for (int k = 0; k < 2; k++){
-                m.emplace_back(i == 1);
-                m.emplace_back(j == 1);
-                m.emplace_back(k == 1);
-
-                // c1 = m * x^degree(g)
-                std::vector<bool> c1 = m;
-                for (int f = 0; f < degreeVec(g); ++f) c1.insert(c1.begin(), false);
-                // c = c1 mod g
-                std::vector<bool> c = mod(c1, g);
-
-                // a = c1 + c = m * x^degree(g) + ((m * x^degree(g)) mod g)
-                std::vector<bool> a = c1;
-                for (size_t f = 0; f < c.size(); ++f) a[f] = c[f];
-
-                map.emplace(std::pair<std::vector<bool>, std::vector<bool>>(m, a));
-
-                m.clear();
-                c1.clear();
-                c.clear();
-                a.clear();
-            }
-        }
-    }
-
-    return map;
-}
+#include "system.h"
+#include "theory.h"
 
 int main() {
+    std::string outputPath = "E:\\2\\";
     std::vector<bool> g = {1, 1, 1, 0, 1}; // порождающий многочлен
-    //std::cout << "g = " << g << std::endl;
+    std::cout << "g = " << g << std::endl;
 
     // Генератор для m - генератор случайного сообщения
     std::random_device rd1;
@@ -139,31 +22,234 @@ int main() {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<double> dis(0.0, 1.0);
 
+    /// Проверка работоспособности
+    std::vector<bool> mtest, etest;
+    for (int i = 0; i < 3; i++) mtest.push_back(dis1(gen1) == 1);
+    std::vector<bool> atest = coder(mtest, g, true);
+    for (int i = 0; i < 7; i++) etest.push_back(dis(gen) < 0.3);
+    std::vector<bool> btest = channel(atest, etest, true);
+    std::cout << (decoder(btest, g, true) ? "Haven't errors" : "There is errors!") << std::endl;
+
+    /// График зависимости оценки ошибки от вер-ти ошибки
     int N = 10000; // количество итераций
     std::map<std::vector<bool>, std::vector<bool>> codeBook = createCodeBook(g);
-
+    std::ofstream file(outputPath + "Pe_p.txt");
+    if (!file.is_open()){
+        std::cerr << "Unable open file!";
+        exit(-1);
+    }
     for (double p = 0.0; p <= 1.0; p += 0.01){
         int Ne = 0; // количество ошибок
         for (int j = 0; j < N; j++){
-            //if (j % 1000 == 0) std::cout << j / 100 << "%" << std::endl;
             // Формирование случайного сообщения
             std::vector<bool> m;
-            for (int i = 0; i < 3; i++){
-                m.push_back(dis1(gen1) == 1);
-            }
+            for (int i = 0; i < 3; i++) m.push_back(dis1(gen1) == 1);
+            std::cout << "m = " << m << std::endl;
+            std::vector<bool> a = coder(m, g, false);
 
             // Формирование случайного вектора ошибок
             std::vector<bool> e;
             for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
 
-            // Применение кодирования и применение ошибки в канале
-            bool check = func(m, g, e);
+            // Применение ошибки в канале
+            std::vector<bool> b = channel(a, e, false);
             // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
-            if ((degreeVec(e) != -1) & (check)) Ne++;
+            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
 
             m.clear();
+            a.clear();
             e.clear();
+            b.clear();
         }
-        std::cout << p << "=" << (double)(Ne)/(double)(N) << "=" << theory(codeBook, 7, p) << std::endl;
+        file << p << "=" << (double)(Ne)/(double)(N) << "=" << theory(codeBook, 7, p) << std::endl;
     }
+    file.close();
+    std::cout << outputPath + "Pe_p.txt created" << std::endl;
+
+    /// Фиксированные значения
+    // m = 000
+    file = std::ofstream(outputPath + "Fixed_0.txt");
+    for (double p = 0.0; p <= 1.0; p += 0.01){
+        int Ne = 0; // количество ошибок
+        for (int j = 0; j < N; j++){
+            // Формирование случайного сообщения
+            std::vector<bool> m = {0, 0, 0};
+            std::vector<bool> a = coder(m, g, false);
+
+            // Формирование случайного вектора ошибок
+            std::vector<bool> e;
+            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
+
+            // Применение ошибки в канале
+            std::vector<bool> b = channel(a, e, false);
+            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
+            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
+
+            m.clear();
+            a.clear();
+            e.clear();
+            b.clear();
+        }
+        file << p << "=" << (double)(Ne)/(double)(N) << std::endl;
+    }
+    file.close();
+    std::cout << outputPath + "Fixed_0.txt created" << std::endl;
+
+    // m = 001
+    file = std::ofstream(outputPath + "Fixed_1.txt");
+    for (double p = 0.0; p <= 1.0; p += 0.01){
+        int Ne = 0; // количество ошибок
+        for (int j = 0; j < N; j++){
+            // Формирование случайного сообщения
+            std::vector<bool> m = {0, 0, 1};
+            std::vector<bool> a = coder(m, g, false);
+
+            // Формирование случайного вектора ошибок
+            std::vector<bool> e;
+            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
+
+            // Применение ошибки в канале
+            std::vector<bool> b = channel(a, e, false);
+            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
+            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
+
+            m.clear();
+            a.clear();
+            e.clear();
+            b.clear();
+        }
+        file << p << "=" << (double)(Ne)/(double)(N) << std::endl;
+    }
+    file.close();
+    std::cout << outputPath + "Fixed_1.txt created" << std::endl;
+
+    // m = 010
+    file = std::ofstream(outputPath + "Fixed_2.txt");
+    for (double p = 0.0; p <= 1.0; p += 0.01){
+        int Ne = 0; // количество ошибок
+        for (int j = 0; j < N; j++){
+            // Формирование случайного сообщения
+            std::vector<bool> m = {0, 1, 0};
+            std::vector<bool> a = coder(m, g, false);
+
+            // Формирование случайного вектора ошибок
+            std::vector<bool> e;
+            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
+
+            // Применение ошибки в канале
+            std::vector<bool> b = channel(a, e, false);
+            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
+            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
+
+            m.clear();
+            a.clear();
+            e.clear();
+            b.clear();
+        }
+        file << p << "=" << (double)(Ne)/(double)(N) << std::endl;
+    }
+    file.close();
+    std::cout << outputPath + "Fixed_2.txt created" << std::endl;
+
+    // m = 100
+    file = std::ofstream(outputPath + "Fixed_3.txt");
+    for (double p = 0.0; p <= 1.0; p += 0.01){
+        int Ne = 0; // количество ошибок
+        for (int j = 0; j < N; j++){
+            // Формирование случайного сообщения
+            std::vector<bool> m = {1, 0, 0};
+            std::vector<bool> a = coder(m, g, false);
+
+            // Формирование случайного вектора ошибок
+            std::vector<bool> e;
+            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
+
+            // Применение ошибки в канале
+            std::vector<bool> b = channel(a, e, false);
+            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
+            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
+
+            m.clear();
+            a.clear();
+            e.clear();
+            b.clear();
+        }
+        file << p << "=" << (double)(Ne)/(double)(N) << std::endl;
+    }
+    file.close();
+    std::cout << outputPath + "Fixed_3.txt created" << std::endl;
+
+    /// Альтернативный канал
+    file = std::ofstream(outputPath + "secondChannel.txt");
+    if (!file.is_open()){
+        std::cerr << "Unable open file!";
+        exit(-1);
+    }
+    for (double p = 0.0; p <= 1.0; p += 0.01){
+        int Ne = 0; // количество ошибок
+        int Ne_s = 0; // количество ошибок во втором варианте
+        for (int j = 0; j < N; j++){
+            // Формирование случайного сообщения
+            std::vector<bool> m;
+            for (int i = 0; i < 3; i++) m.push_back(dis1(gen1) == 1);
+            std::vector<bool> a = coder(m, g, false);
+
+            // Формирование случайного вектора ошибок
+            std::vector<bool> e;
+            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
+
+            // Применение ошибки в канале
+            std::vector<bool> b = channel(a, e, false);
+            std::vector<bool> b_s = secondChannel(a, e, false);
+            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
+            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
+            if ((degreeVec(e) != -1) & (decoder(b_s, g, false))) Ne_s++;
+
+            m.clear();
+            a.clear();
+            e.clear();
+            b.clear();
+            b_s.clear();
+        }
+        file << p << "=" << (double)(Ne)/(double)(N) << "=" << (double)(Ne_s)/(double)(N) << std::endl;
+    }
+    file.close();
+    std::cout << outputPath + "secondChannel.txt created" << std::endl;
+
+    /// Альтернативный декодер
+    file = std::ofstream(outputPath + "secondChannel.txt");
+    if (!file.is_open()){
+        std::cerr << "Unable open file!";
+        exit(-1);
+    }
+    for (double p = 0.0; p <= 1.0; p += 0.01){
+        int Ne = 0; // количество ошибок
+        int Ne_s = 0; // количество ошибок во втором варианте
+        for (int j = 0; j < N; j++){
+            // Формирование случайного сообщения
+            std::vector<bool> m;
+            for (int i = 0; i < 3; i++) m.push_back(dis1(gen1) == 1);
+            std::vector<bool> a = coder(m, g, false);
+
+            // Формирование случайного вектора ошибок
+            std::vector<bool> e;
+            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
+
+            // Применение ошибки в канале
+            std::vector<bool> b = channel(a, e, false);
+            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
+            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
+            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne_s++;
+
+            m.clear();
+            a.clear();
+            e.clear();
+            b.clear();
+        }
+        file << p << "=" << (double)(Ne)/(double)(N) << "=" << (double)(Ne_s)/(double)(N) << std::endl;
+    }
+    file.close();
+    std::cout << outputPath + "secondDecoder.txt created" << std::endl;
+
+    codeBook.clear();
 }

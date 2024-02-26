@@ -3,4 +3,7 @@ project(Binary_Symmetric_Channel)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_executable(Binary_Symmetric_Channel main.cpp)
+add_executable(Binary_Symmetric_Channel main.cpp
+        system.h
+        Utils.h
+        theory.h)
