@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <iostream>
+#include <algorithm>
 
 #include "Utils.h"
 
@@ -35,6 +36,13 @@ std::vector<bool> channel(const std::vector<bool>& a, const std::vector<bool>& e
     return b;
 }
 
+bool decoder(const std::vector<bool>& b, const std::vector<bool>& g, bool output){
+    // s = b mod g (если s != {0}, то произошли ошибки в канале)
+    std::vector<bool> s = mod(b, g);
+    if (output) std::cout << "s = " << s << std::endl;
+    return s.empty();
+}
+
 std::vector<bool> secondChannel(const std::vector<bool>& a, const std::vector<bool>& e, bool output){
     // b = a ^ e (применение ошибок в канале)
     if (output) std::cout << "e = " << e << std::endl;
@@ -45,18 +53,18 @@ std::vector<bool> secondChannel(const std::vector<bool>& a, const std::vector<bo
     return b;
 }
 
-bool decoder(const std::vector<bool>& b, const std::vector<bool>& g, bool output){
-    // s = b mod g (если s != {0}, то произошли ошибки в канале)
-    std::vector<bool> s = mod(b, g);
-    if (output) std::cout << "s = " << s << std::endl;
-    return s.empty();
-}
-
 bool secondDecoder(const std::vector<bool>& b, const std::vector<bool>& g, bool output){
     // s = b mod g (если s != {0}, то произошли ошибки в канале)
-    std::vector<bool> s = mod(b, g);
-    if (output) std::cout << "s = " << s << std::endl;
-    return s.empty();
+    std::vector<bool> m;
+    for (int i = b.size() - 1; i >= b.size() - 3; i--) m.push_back(b[i]);
+    std::reverse(m.begin(), m.end());
+    if (output) std::cout << "m_new = " << m << std::endl;
+    std::vector<bool> a = coder(m, g, false); // снова считаем a
+    if (output) std::cout << "a_new = " << a << std::endl;
+    for (int i = 3; i >= 0; i++){
+        if (a[i] != b[i]) return false;
+    }
+    return true;
 }
 
 #endif //BINARY_SYMMETRIC_CHANNEL_SYSTEM_H

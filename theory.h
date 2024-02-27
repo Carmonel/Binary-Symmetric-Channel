@@ -7,7 +7,24 @@
 
 #include "Utils.h"
 
-double theory(std::map<std::vector<bool>, std::vector<bool>> codeBook, int n, double p){
+int combinations(int n, int k) {
+    if (k == 0 || k == n) {
+        return 1;
+    }
+
+    return combinations(n - 1, k - 1) + combinations(n - 1, k);
+}
+
+double theoryUp(int n, double p){
+    double result = 1;
+    for (int i = 0; i <= n; ++i) {
+        result -= combinations(n, i) * pow(p, i) * pow(1 - p, n - i);
+    }
+
+    return result;
+}
+
+double theory(const std::map<std::vector<bool>, std::vector<bool>>& codeBook, int n, double p){
     double Nt = 0.0;
 
     for (int i = 0; i <= n; ++i) {

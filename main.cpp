@@ -25,10 +25,38 @@ int main() {
     /// Проверка работоспособности
     std::vector<bool> mtest, etest;
     for (int i = 0; i < 3; i++) mtest.push_back(dis1(gen1) == 1);
+    std::cout << "m = " << mtest << std::endl;
     std::vector<bool> atest = coder(mtest, g, true);
     for (int i = 0; i < 7; i++) etest.push_back(dis(gen) < 0.3);
     std::vector<bool> btest = channel(atest, etest, true);
     std::cout << (decoder(btest, g, true) ? "Haven't errors" : "There is errors!") << std::endl;
+    std::cout << std::endl;
+
+    mtest.clear();
+    atest.clear();
+    etest.clear();
+    btest.clear();
+
+    /// Альтернативный декодер
+    // Формирование случайного сообщения
+    std::vector<bool> mtest1;
+    for (int i = 0; i < 3; i++) mtest1.push_back(dis1(gen1) == 1);
+    std::cout << "m = " << mtest1 << std::endl;
+    std::vector<bool> atest1 = coder(mtest1, g, true);
+
+    // Формирование случайного вектора ошибок
+    std::vector<bool> etest1;
+    for (int i = 0; i < 7; i++) etest1.push_back(dis(gen) < 0.3);
+
+    // Применение ошибки в канале
+    std::vector<bool> btest1 = channel(atest1, etest1, true);
+
+    std::cout << (secondDecoder(btest1, g, true) ? "Haven't errors" : "There is errors!") << std::endl;
+
+    mtest1.clear();
+    atest1.clear();
+    etest1.clear();
+    btest1.clear();
 
     /// График зависимости оценки ошибки от вер-ти ошибки
     int N = 10000; // количество итераций
@@ -44,7 +72,6 @@ int main() {
             // Формирование случайного сообщения
             std::vector<bool> m;
             for (int i = 0; i < 3; i++) m.push_back(dis1(gen1) == 1);
-            std::cout << "m = " << m << std::endl;
             std::vector<bool> a = coder(m, g, false);
 
             // Формирование случайного вектора ошибок
@@ -216,8 +243,8 @@ int main() {
     file.close();
     std::cout << outputPath + "secondChannel.txt created" << std::endl;
 
-    /// Альтернативный декодер
-    file = std::ofstream(outputPath + "secondChannel.txt");
+    /// Альтернативный декодер (исследование)
+    file = std::ofstream(outputPath + "secondDecoder.txt");
     if (!file.is_open()){
         std::cerr << "Unable open file!";
         exit(-1);
@@ -239,7 +266,7 @@ int main() {
             std::vector<bool> b = channel(a, e, false);
             // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
             if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
-            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne_s++;
+            if ((degreeVec(e) != -1) & (secondDecoder(b, g, false))) Ne_s++;
 
             m.clear();
             a.clear();
@@ -250,6 +277,14 @@ int main() {
     }
     file.close();
     std::cout << outputPath + "secondDecoder.txt created" << std::endl;
+
+    /// Теоретические оценки ошибок
+    file = std::ofstream(outputPath + "theory.txt");
+    for (double p = 0.0; p <= 1.0; p += 0.01){
+        file << p << "=" << theory(codeBook, 7, p) << "=" << theoryUp(7, p) << std::endl;
+    }
+    file.close();
+    std::cout << outputPath + "theory.txt created" << std::endl;
 
     codeBook.clear();
 }
