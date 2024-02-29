@@ -8,283 +8,122 @@
 #include "theory.h"
 
 int main() {
-    std::string outputPath = "E:\\2\\";
-    std::vector<bool> g = {1, 1, 1, 0, 1}; // порождающий многочлен
-    std::cout << "g = " << g << std::endl;
+    int l = 3; // длина сообщения
+    std::vector<bool> g = {1, 1, 1, 0, 1}; // x^4 + x^2 + x + 1
+    double p = 0.3; // вероятность ошибки на бит
+    bool graphs = true;
 
-    // Генератор для m - генератор случайного сообщения
-    std::random_device rd1;
-    std::mt19937 gen1(rd1());
-    std::uniform_int_distribution<int> dis1(0, 1);
+    /// Проверка на работоспособность стандратного декодера
+    std::cout << "Standard decoder:" << std::endl;
+    std::vector<bool> m = {0, 1, 1};
+    std::cout << "m = " << m << std::endl;
+    std::vector<bool> a = coder(m, g, true);
+    std::vector<bool> e = genErrors(a.size(), true);
+    std::vector<bool> b = channel(a, e, true);
+    std::cout << (decoder(b, g, true)? "Haven't errors" : "There is errors!") << std::endl;
 
-    // Генератор для e - генератор случайного вектора ошибок
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
+    m.clear();
+    a.clear();
+    e.clear();
+    b.clear();
 
-    /// Проверка работоспособности
-    std::vector<bool> mtest, etest;
-    for (int i = 0; i < 3; i++) mtest.push_back(dis1(gen1) == 1);
-    std::cout << "m = " << mtest << std::endl;
-    std::vector<bool> atest = coder(mtest, g, true);
-    for (int i = 0; i < 7; i++) etest.push_back(dis(gen) < 0.3);
-    std::vector<bool> btest = channel(atest, etest, true);
-    std::cout << (decoder(btest, g, true) ? "Haven't errors" : "There is errors!") << std::endl;
-    std::cout << std::endl;
+    if (!graphs) return 0;
 
-    mtest.clear();
-    atest.clear();
-    etest.clear();
-    btest.clear();
+    /// График теоретической ошибки
+    std::map<double, double> theoryGraph;
+    auto codeBook = createCodeBook(g, l);
+    double delta = 0.01;
+    for (p = 0.0; p <= 1.001; p += delta){
+        double theoryValue = theory(codeBook, 4 + 3, p);
+        theoryGraph.emplace(std::pair<double, double>(p, theoryValue));
+    }
 
-    /// Альтернативный декодер
-    // Формирование случайного сообщения
-    std::vector<bool> mtest1;
-    for (int i = 0; i < 3; i++) mtest1.push_back(dis1(gen1) == 1);
-    std::cout << "m = " << mtest1 << std::endl;
-    std::vector<bool> atest1 = coder(mtest1, g, true);
 
-    // Формирование случайного вектора ошибок
-    std::vector<bool> etest1;
-    for (int i = 0; i < 7; i++) etest1.push_back(dis(gen) < 0.3);
+    /// График экспериментальной ошибки
+    std::vector<std::vector<double>> expGraph;
+    double eps = 0.01;
+    int maxIterations = 5000;
+    auto it = theoryGraph.begin();
+    for (p = 0.0; p <= 1.001; p += delta){
+        double Nerr = 0; // количество ошибок
+        int iterations = 0; // количество итераций
+        double currentTheoryValue = it->second; // теоретическая ошибка
+        double currentExpValue = 0; // эксперементальная ошибка
+        double difference = currentTheoryValue - currentExpValue; // разница теор. и эксп.
+        if (difference < 0) difference *= -1;
 
-    // Применение ошибки в канале
-    std::vector<bool> btest1 = channel(atest1, etest1, true);
+        while (iterations < maxIterations){
+            iterations++;
 
-    std::cout << (secondDecoder(btest1, g, true) ? "Haven't errors" : "There is errors!") << std::endl;
+            m = genRandomMessage(l);
+            a = coder(m, g, false);
+            e = genRandomErrors(a.size(), p);
+            b = channel(a, e, false);
+            bool check = decoder(b, g, false);
+            int wcount = w(e);
+            if (check && (wcount != 0)) Nerr++;
 
-    mtest1.clear();
-    atest1.clear();
-    etest1.clear();
-    btest1.clear();
+            currentExpValue = (double)(Nerr)/(double)(iterations); // вычисление новой теор. ошибки
+            difference = currentTheoryValue - currentExpValue; // вычисление новой разницы теор. и эксп.
+            if (difference < 0) difference *= -1;
+            if ((difference < eps)) break;
+        }
+        expGraph.emplace_back(std::vector<double>({p, currentExpValue, (double)iterations / (double)maxIterations}));
+        it++;
+    }
 
-    /// График зависимости оценки ошибки от вер-ти ошибки
-    int N = 10000; // количество итераций
-    std::map<std::vector<bool>, std::vector<bool>> codeBook = createCodeBook(g);
-    std::ofstream file(outputPath + "Pe_p.txt");
+    /// Вывод графика
+    std::ofstream file("C:\\2\\Graph.txt");
     if (!file.is_open()){
-        std::cerr << "Unable open file!";
+        std::cerr << "File hasn't opened!" << std::endl;
         exit(-1);
     }
-    for (double p = 0.0; p <= 1.0; p += 0.01){
-        int Ne = 0; // количество ошибок
-        for (int j = 0; j < N; j++){
-            // Формирование случайного сообщения
-            std::vector<bool> m;
-            for (int i = 0; i < 3; i++) m.push_back(dis1(gen1) == 1);
-            std::vector<bool> a = coder(m, g, false);
-
-            // Формирование случайного вектора ошибок
-            std::vector<bool> e;
-            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
-
-            // Применение ошибки в канале
-            std::vector<bool> b = channel(a, e, false);
-            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
-            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
-
-            m.clear();
-            a.clear();
-            e.clear();
-            b.clear();
-        }
-        file << p << "=" << (double)(Ne)/(double)(N) << "=" << theory(codeBook, 7, p) << std::endl;
+    auto theoryIt = theoryGraph.begin();
+    int expGraphI = 0;
+    while (theoryIt != theoryGraph.end()){
+        file << theoryIt->first << "=" << theoryIt->second << "=" << expGraph[expGraphI][1] << "=" << expGraph[expGraphI][2] << std::endl;
+        theoryIt++;
+        expGraphI++;
     }
     file.close();
-    std::cout << outputPath + "Pe_p.txt created" << std::endl;
+    std::cout << "C:\\2\\Graph.txt created" << std::endl;
 
-    /// Фиксированные значения
-    // m = 000
-    file = std::ofstream(outputPath + "Fixed_0.txt");
-    for (double p = 0.0; p <= 1.0; p += 0.01){
-        int Ne = 0; // количество ошибок
-        for (int j = 0; j < N; j++){
-            // Формирование случайного сообщения
-            std::vector<bool> m = {0, 0, 0};
-            std::vector<bool> a = coder(m, g, false);
 
-            // Формирование случайного вектора ошибок
-            std::vector<bool> e;
-            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
+    /// График для альтернативного канала
+    std::vector<std::vector<double>> altChannelGraph;
+    for (p = 0.0; p <= 1.001; p += delta){
+        double Nerr = 0; // количество ошибок
 
-            // Применение ошибки в канале
-            std::vector<bool> b = channel(a, e, false);
-            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
-            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
-
-            m.clear();
-            a.clear();
-            e.clear();
-            b.clear();
+        for (int i = 0; i < 5000; i++){
+            m = genRandomMessage(l);
+            a = coder(m, g, false);
+            e = genRandomErrors(a.size(), p);
+            b = secondChannel(a, e, false);
+            bool check = decoder(b, g, false);
+            int wcount = w(e);
+            if (check && (wcount != 0)) Nerr++;
         }
-        file << p << "=" << (double)(Ne)/(double)(N) << std::endl;
+        altChannelGraph.push_back(std::vector<double>({p, Nerr/5000, (double)it->second / (double)maxIterations}));
+        it++;
     }
-    file.close();
-    std::cout << outputPath + "Fixed_0.txt created" << std::endl;
 
-    // m = 001
-    file = std::ofstream(outputPath + "Fixed_1.txt");
-    for (double p = 0.0; p <= 1.0; p += 0.01){
-        int Ne = 0; // количество ошибок
-        for (int j = 0; j < N; j++){
-            // Формирование случайного сообщения
-            std::vector<bool> m = {0, 0, 1};
-            std::vector<bool> a = coder(m, g, false);
-
-            // Формирование случайного вектора ошибок
-            std::vector<bool> e;
-            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
-
-            // Применение ошибки в канале
-            std::vector<bool> b = channel(a, e, false);
-            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
-            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
-
-            m.clear();
-            a.clear();
-            e.clear();
-            b.clear();
-        }
-        file << p << "=" << (double)(Ne)/(double)(N) << std::endl;
-    }
-    file.close();
-    std::cout << outputPath + "Fixed_1.txt created" << std::endl;
-
-    // m = 010
-    file = std::ofstream(outputPath + "Fixed_2.txt");
-    for (double p = 0.0; p <= 1.0; p += 0.01){
-        int Ne = 0; // количество ошибок
-        for (int j = 0; j < N; j++){
-            // Формирование случайного сообщения
-            std::vector<bool> m = {0, 1, 0};
-            std::vector<bool> a = coder(m, g, false);
-
-            // Формирование случайного вектора ошибок
-            std::vector<bool> e;
-            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
-
-            // Применение ошибки в канале
-            std::vector<bool> b = channel(a, e, false);
-            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
-            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
-
-            m.clear();
-            a.clear();
-            e.clear();
-            b.clear();
-        }
-        file << p << "=" << (double)(Ne)/(double)(N) << std::endl;
-    }
-    file.close();
-    std::cout << outputPath + "Fixed_2.txt created" << std::endl;
-
-    // m = 100
-    file = std::ofstream(outputPath + "Fixed_3.txt");
-    for (double p = 0.0; p <= 1.0; p += 0.01){
-        int Ne = 0; // количество ошибок
-        for (int j = 0; j < N; j++){
-            // Формирование случайного сообщения
-            std::vector<bool> m = {1, 0, 0};
-            std::vector<bool> a = coder(m, g, false);
-
-            // Формирование случайного вектора ошибок
-            std::vector<bool> e;
-            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
-
-            // Применение ошибки в канале
-            std::vector<bool> b = channel(a, e, false);
-            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
-            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
-
-            m.clear();
-            a.clear();
-            e.clear();
-            b.clear();
-        }
-        file << p << "=" << (double)(Ne)/(double)(N) << std::endl;
-    }
-    file.close();
-    std::cout << outputPath + "Fixed_3.txt created" << std::endl;
-
-    /// Альтернативный канал
-    file = std::ofstream(outputPath + "secondChannel.txt");
+    /// Вывод графика для альтернативного канала
+    file = std::ofstream("C:\\2\\altGraph.txt");
     if (!file.is_open()){
-        std::cerr << "Unable open file!";
+        std::cerr << "File hasn't opened!" << std::endl;
         exit(-1);
     }
-    for (double p = 0.0; p <= 1.0; p += 0.01){
-        int Ne = 0; // количество ошибок
-        int Ne_s = 0; // количество ошибок во втором варианте
-        for (int j = 0; j < N; j++){
-            // Формирование случайного сообщения
-            std::vector<bool> m;
-            for (int i = 0; i < 3; i++) m.push_back(dis1(gen1) == 1);
-            std::vector<bool> a = coder(m, g, false);
-
-            // Формирование случайного вектора ошибок
-            std::vector<bool> e;
-            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
-
-            // Применение ошибки в канале
-            std::vector<bool> b = channel(a, e, false);
-            std::vector<bool> b_s = secondChannel(a, e, false);
-            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
-            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
-            if ((degreeVec(e) != -1) & (decoder(b_s, g, false))) Ne_s++;
-
-            m.clear();
-            a.clear();
-            e.clear();
-            b.clear();
-            b_s.clear();
-        }
-        file << p << "=" << (double)(Ne)/(double)(N) << "=" << (double)(Ne_s)/(double)(N) << std::endl;
+    theoryIt = theoryGraph.begin();
+    expGraphI = 0;
+    while (theoryIt != theoryGraph.end()){
+        file << theoryIt->first << "=" << theoryIt->second << "=" << altChannelGraph[expGraphI][1] << "=" << altChannelGraph[expGraphI][2] << std::endl;
+        theoryIt++;
+        expGraphI++;
     }
     file.close();
-    std::cout << outputPath + "secondChannel.txt created" << std::endl;
+    std::cout << "C:\\2\\altGraph.txt created" << std::endl;
 
-    /// Альтернативный декодер (исследование)
-    file = std::ofstream(outputPath + "secondDecoder.txt");
-    if (!file.is_open()){
-        std::cerr << "Unable open file!";
-        exit(-1);
-    }
-    for (double p = 0.0; p <= 1.0; p += 0.01){
-        int Ne = 0; // количество ошибок
-        int Ne_s = 0; // количество ошибок во втором варианте
-        for (int j = 0; j < N; j++){
-            // Формирование случайного сообщения
-            std::vector<bool> m;
-            for (int i = 0; i < 3; i++) m.push_back(dis1(gen1) == 1);
-            std::vector<bool> a = coder(m, g, false);
-
-            // Формирование случайного вектора ошибок
-            std::vector<bool> e;
-            for (int i = 0; i < 7; i++) e.push_back(dis(gen) < p);
-
-            // Применение ошибки в канале
-            std::vector<bool> b = channel(a, e, false);
-            // Если вектор ошибок не нулевой и алгоритм не увидел ошибку
-            if ((degreeVec(e) != -1) & (decoder(b, g, false))) Ne++;
-            if ((degreeVec(e) != -1) & (secondDecoder(b, g, false))) Ne_s++;
-
-            m.clear();
-            a.clear();
-            e.clear();
-            b.clear();
-        }
-        file << p << "=" << (double)(Ne)/(double)(N) << "=" << (double)(Ne_s)/(double)(N) << std::endl;
-    }
-    file.close();
-    std::cout << outputPath + "secondDecoder.txt created" << std::endl;
-
-    /// Теоретические оценки ошибок
-    file = std::ofstream(outputPath + "theory.txt");
-    for (double p = 0.0; p <= 1.0; p += 0.01){
-        file << p << "=" << theory(codeBook, 7, p) << "=" << theoryUp(7, p) << std::endl;
-    }
-    file.close();
-    std::cout << outputPath + "theory.txt created" << std::endl;
-
-    codeBook.clear();
+    theoryGraph.clear();
+    expGraph.clear();
+    altChannelGraph.clear();
 }

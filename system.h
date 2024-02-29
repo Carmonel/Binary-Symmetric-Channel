@@ -11,13 +11,14 @@ std::vector<bool> coder(const std::vector<bool>& m, const std::vector<bool>& g, 
     // c1 = m * x^degree(g)
     std::vector<bool> c1 = m;
     for (int i = 0; i < degreeVec(g); ++i) c1.insert(c1.begin(), false);
+    if (output) std::cout << "m * x^degree(g) = " << c1 << std::endl;
     // c = c1 mod g
     std::vector<bool> c = mod(c1, g);
+    if (output) std::cout << "m * x^degree(g) mod g = " << c << std::endl;
 
     // a = c1 + c = m * x^degree(g) + ((m * x^degree(g)) mod g)
     std::vector<bool> a = c1;
-    for (size_t i = 0; i < c.size(); ++i)
-        a[i] = c[i];
+    for (size_t i = 0; i < c.size(); ++i) a[i] = c[i];
     if (output) std::cout << "a = " << a << std::endl;
 
     c.clear();

@@ -3,6 +3,44 @@
 
 #include <vector>
 #include <iostream>
+#include <random>
+
+std::vector<bool> genRandomErrors(int size, double p){
+    if ((p < 0.0) || (p > 1.001)){
+        std::cerr << "genRandomErrors(): p != [0; 1]" << std::endl;
+        exit(-1);
+    }
+    // Генератор для e - генератор случайного вектора ошибок
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
+
+    std::vector<bool> res;
+    for (int i = 0; i < size; i++){
+        res.push_back(dis(gen) < p);
+    }
+    return res;
+}
+
+std::vector<bool> genErrors(int size, bool value){
+    std::vector<bool> res;
+    for (int i = 0; i < size; i++){
+        res.push_back(value);
+    }
+    return res;
+}
+
+std::vector<bool> genRandomMessage(int size){
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dis(0, 1);
+
+    std::vector<bool> res;
+    for (int i = 0; i < size; i++){
+        res.push_back(dis(gen) == 1);
+    }
+    return res;
+}
 
 int w(const std::vector<bool>& a){
     int count = 0;
@@ -45,6 +83,19 @@ std::vector<bool> mod(const std::vector<bool>& a, const std::vector<bool>& b) {
     clearZeros(remainder);
 
     return remainder;
+}
+
+void generateVariations(std::vector<bool>& m, int index, std::vector<std::vector<bool>>& variations) {
+    if (index == m.size()) {
+        variations.push_back(m);
+        return;
+    }
+
+    m[index] = false;
+    generateVariations(m, index + 1, variations);
+
+    m[index] = true;
+    generateVariations(m, index + 1, variations);
 }
 
 #endif //BINARY_SYMMETRIC_CHANNEL_UTILS_H

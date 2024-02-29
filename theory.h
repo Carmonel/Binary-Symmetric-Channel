@@ -25,6 +25,7 @@ double theoryUp(int n, double p){
 }
 
 double theory(const std::map<std::vector<bool>, std::vector<bool>>& codeBook, int n, double p){
+    p = 1 - p;
     double Nt = 0.0;
 
     for (int i = 0; i <= n; ++i) {
@@ -38,37 +39,31 @@ double theory(const std::map<std::vector<bool>, std::vector<bool>>& codeBook, in
     return Nt;
 }
 
-std::map<std::vector<bool>, std::vector<bool>> createCodeBook(const std::vector<bool>& g){
+std::map<std::vector<bool>, std::vector<bool>> createCodeBook(const std::vector<bool>& g, int size){
+    std::vector<bool> mvar(size);
+    std::vector<std::vector<bool>> variations;
+    generateVariations(mvar, 0, variations);
     std::map<std::vector<bool>, std::vector<bool>> map;
-    std::vector<bool> m;
 
-    for (int i = 0; i < 2; i++){
-        for (int j = 0; j < 2; j++){
-            for (int k = 0; k < 2; k++){
-                m.emplace_back(i == 1);
-                m.emplace_back(j == 1);
-                m.emplace_back(k == 1);
+    for (int i = 0; i < variations.size(); i++){
+        // c1 = m * x^degree(g)
+        std::vector<bool> c1 = variations[i];
+        for (int f = 0; f < degreeVec(g); ++f) c1.insert(c1.begin(), false);
+        // c = c1 mod g
+        std::vector<bool> c = mod(c1, g);
 
-                // c1 = m * x^degree(g)
-                std::vector<bool> c1 = m;
-                for (int f = 0; f < degreeVec(g); ++f) c1.insert(c1.begin(), false);
-                // c = c1 mod g
-                std::vector<bool> c = mod(c1, g);
+        // a = c1 + c = m * x^degree(g) + ((m * x^degree(g)) mod g)
+        std::vector<bool> a = c1;
+        for (size_t f = 0; f < c.size(); ++f) a[f] = c[f];
 
-                // a = c1 + c = m * x^degree(g) + ((m * x^degree(g)) mod g)
-                std::vector<bool> a = c1;
-                for (size_t f = 0; f < c.size(); ++f) a[f] = c[f];
+        map.emplace(std::pair<std::vector<bool>, std::vector<bool>>(variations[i], a));
 
-                map.emplace(std::pair<std::vector<bool>, std::vector<bool>>(m, a));
-
-                m.clear();
-                c1.clear();
-                c.clear();
-                a.clear();
-            }
-        }
+        c1.clear();
+        c.clear();
+        a.clear();
     }
 
+    variations.clear();
     return map;
 }
 
