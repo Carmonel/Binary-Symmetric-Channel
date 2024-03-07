@@ -37,11 +37,11 @@ std::vector<bool> channel(const std::vector<bool>& a, const std::vector<bool>& e
     return b;
 }
 
-bool decoder(const std::vector<bool>& b, const std::vector<bool>& g, bool output){
+std::vector<bool> decoder(const std::vector<bool>& b, const std::vector<bool>& g, bool output){
     // s = b mod g (если s != {0}, то произошли ошибки в канале)
     std::vector<bool> s = mod(b, g);
     if (output) std::cout << "s = " << s << std::endl;
-    return s.empty();
+    return s;
 }
 
 std::vector<bool> secondChannel(const std::vector<bool>& a, const std::vector<bool>& e, bool output){
@@ -66,6 +66,40 @@ bool secondDecoder(const std::vector<bool>& b, const std::vector<bool>& g, bool 
         if (a[i] != b[i]) return false;
     }
     return true;
+}
+
+void checkStatement3(const std::map<std::vector<bool>, std::vector<bool>>& codeBook, const std::vector<bool>& g){
+    // Store errors count and errors finded
+    std::vector<std::pair<int, int>> eCount(codeBook.begin()->second.size()+1, std::pair<int, int>(0, 0));
+    std::vector<bool> etmp(codeBook.begin()->second.size());
+    std::vector<std::vector<bool>> eVar;
+    generateVariations(etmp, 0, eVar);
+
+    for (const auto& a: codeBook){
+        for (const auto& e: eVar){
+            auto b = channel(a.second, e, false);
+            int wcount = w(decoder(b, g, false));
+            int ecount = w(e);
+
+            // s == 0 -> ошибок не было
+            if (wcount == 0){
+                eCount[ecount].first++;
+            }
+            // s != 0 -> ошибки обнаружены
+            if (wcount != 0){
+                eCount[ecount].first++;
+                eCount[ecount].second++;
+            }
+            b.clear();
+        }
+    }
+    etmp.clear();
+    eVar.clear();
+    for (int i = 0; i < eCount.size(); i++){
+        std::cout << "Errors: " << i << "; Count: " << eCount[i].first << "; Found errors: " << eCount[i].second << std::endl;
+    }
+    std::cout << "checkStatement3() finished." << std::endl;
+    eCount.clear();
 }
 
 #endif //BINARY_SYMMETRIC_CHANNEL_SYSTEM_H

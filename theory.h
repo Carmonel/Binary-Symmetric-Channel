@@ -45,9 +45,9 @@ std::map<std::vector<bool>, std::vector<bool>> createCodeBook(const std::vector<
     generateVariations(mvar, 0, variations);
     std::map<std::vector<bool>, std::vector<bool>> map;
 
-    for (int i = 0; i < variations.size(); i++){
+    for (auto & variation : variations){
         // c1 = m * x^degree(g)
-        std::vector<bool> c1 = variations[i];
+        std::vector<bool> c1 = variation;
         for (int f = 0; f < degreeVec(g); ++f) c1.insert(c1.begin(), false);
         // c = c1 mod g
         std::vector<bool> c = mod(c1, g);
@@ -56,7 +56,7 @@ std::map<std::vector<bool>, std::vector<bool>> createCodeBook(const std::vector<
         std::vector<bool> a = c1;
         for (size_t f = 0; f < c.size(); ++f) a[f] = c[f];
 
-        map.emplace(std::pair<std::vector<bool>, std::vector<bool>>(variations[i], a));
+        map.emplace(std::pair<std::vector<bool>, std::vector<bool>>(variation, a));
 
         c1.clear();
         c.clear();

@@ -4,6 +4,10 @@
 #include <vector>
 #include <iostream>
 #include <random>
+#include <map>
+
+#include "system.h"
+#include "Utils.h"
 
 std::vector<bool> genRandomErrors(int size, double p){
     if ((p < 0.0) || (p > 1.001)){
@@ -67,6 +71,7 @@ int degreeVec(const std::vector<bool>& a) {
 void clearZeros(std::vector<bool>& a) {
     while (!a.empty() && !a.back())
         a.pop_back();
+    if (a.empty()) a.push_back(false);
 }
 
 std::vector<bool> mod(const std::vector<bool>& a, const std::vector<bool>& b) {
@@ -83,6 +88,60 @@ std::vector<bool> mod(const std::vector<bool>& a, const std::vector<bool>& b) {
     clearZeros(remainder);
 
     return remainder;
+}
+
+void modChecker(){
+    std::vector<bool> a({0, 0, 0, 1, 1, 1, 1}); // 120
+    std::vector<bool> b({0, 0, 0, 1, 1, 1, 0}); // 56
+    std::vector<bool> res = mod(a, b); // 8
+    std::cout << "120 mod 56 = 8" << std::endl;
+    std::cout << a << " mod " << b << " = " << res << std::endl << std::endl;
+
+    std::vector<bool> a1({0, 1, 1, 0, 0, 0, 1}); // 70
+    std::vector<bool> b1({0, 0, 0, 0, 1, 0, 1}); // 80
+    std::vector<bool> res1 = mod(a1, b1); // 70
+    std::cout << "70 mod 80 = 70 (why 22?)" << std::endl;
+    std::cout << a1 << " mod " << b1 << " = " << res1 << std::endl << std::endl;
+
+    std::vector<bool> a2({0, 1, 1, 0, 0, 0, 1}); // 70
+    std::vector<bool> b2({0, 1, 1, 0, 0, 0, 1}); // 70
+    std::vector<bool> res2 = mod(a2, b2); // 70
+    std::cout << "70 mod 70 = 0" << std::endl;
+    std::cout << a2 << " mod " << b2 << " = " << res2 << std::endl << std::endl;
+
+    a.clear();
+    b.clear();
+    res.clear();
+
+    a1.clear();
+    b1.clear();
+    res1.clear();
+
+    a2.clear();
+    b2.clear();
+    res2.clear();
+}
+
+void checkStatement2(const std::map<std::vector<bool>, std::vector<bool>>& codeBook){
+    for (auto i: codeBook){
+        for (auto j: codeBook){
+            std::vector<bool> res;
+            for (int k = 0; k < i.second.size(); k++){
+                res.push_back(i.second[k] ^ j.second[k]);
+            }
+            bool check = true;
+            for (auto k: codeBook){
+                if (k.second == res){
+                    check = false;
+                    break;
+                }
+            }
+            if (check){
+                std::cout << "checkStatement2 error: " << i.second << " ^ " << j.second << " isn't codeBook part." << std::endl;
+            }
+        }
+    }
+    std::cout << "checkStatement2() finished." << std::endl;
 }
 
 void generateVariations(std::vector<bool>& m, int index, std::vector<std::vector<bool>>& variations) {

@@ -1,75 +1,75 @@
 #include <iostream>
 #include <vector>
-#include <random>
-#include <map>
 #include <fstream>
+#include <thread>
 
 #include "system.h"
 #include "theory.h"
 
+void task(int arg){
+    /*std::vector<bool> g = {1, 1, 1, 0, 1};
+    int l = arg;
+    auto codeBook = createCodeBook(g, l);
+
+
+    std::vector<bool> mtmp(arg);
+    std::vector<std::vector<bool>> mVar;
+    generateVariations(mtmp, 0, mVar);
+
+    for (auto m: codeBook){
+        auto a = m.second;
+        std::vector<bool> etmp(a.size());
+        std::vector<std::vector<bool>> eVar;
+        generateVariations(etmp, 0, eVar);
+        for (auto e: eVar){
+            if (w(e) >= d) continue;
+            auto b = channel(a, e, false);
+            int scount = w(decoder(b, g, false));
+            int ecount = w(e);
+            //std::cout << scount << " <-> " << ecount << std::endl;
+            if ((scount == 0) && (ecount != 0)){
+                std::cout << "m = " << m.first << std::endl;
+                std::cout << "a = " << a << std::endl;
+                std::cout << "e = " << e << std::endl;
+                std::cout << "b = " << b << std::endl;
+
+                b.clear();
+                goto exit;
+            }
+            b.clear();
+        }
+        etmp.clear();
+        eVar.clear();
+        a.clear();
+    }
+    exit:
+
+    codeBook.clear();
+    mtmp.clear();
+    mVar.clear();*/
+}
+
 int main() {
     int l = 3; // длина сообщения
     std::vector<bool> g = {1, 1, 1, 0, 1}; // x^4 + x^2 + x + 1
-    double p = 0.3; // вероятность ошибки на бит
-    bool graphs = true;
-
-    /// Проверка на работоспособность стандратного декодера
-    std::cout << "Standard decoder:" << std::endl;
-    std::vector<bool> m = {0, 1, 1};
-    std::cout << "m = " << m << std::endl;
-    std::vector<bool> a = coder(m, g, true);
-    std::vector<bool> e = genErrors(a.size(), true);
-    std::vector<bool> b = channel(a, e, true);
-    std::cout << (decoder(b, g, true)? "Haven't errors" : "There is errors!") << std::endl;
-
-    m.clear();
-    a.clear();
-    e.clear();
-    b.clear();
-
-    if (!graphs) return 0;
 
     /// График теоретической ошибки
-    std::map<double, double> theoryGraph;
+    std::vector<double> theoryGraph;
     auto codeBook = createCodeBook(g, l);
     double delta = 0.01;
-    for (p = 0.0; p <= 1.001; p += delta){
-        double theoryValue = theory(codeBook, 4 + 3, p);
-        theoryGraph.emplace(std::pair<double, double>(p, theoryValue));
+    for (double p = 0.0; p <= 1.001; p += delta){
+        double theoryValue = theory(codeBook, l + degreeVec(g), p);
+        theoryGraph.emplace_back(theoryValue);
     }
 
+    /// Проверка функции mod
+    std::cout << "Mod function checker:" << std::endl;
+    modChecker();
 
-    /// График экспериментальной ошибки
-    std::vector<std::vector<double>> expGraph;
-    double eps = 0.01;
-    int maxIterations = 5000;
-    auto it = theoryGraph.begin();
-    for (p = 0.0; p <= 1.001; p += delta){
-        double Nerr = 0; // количество ошибок
-        int iterations = 0; // количество итераций
-        double currentTheoryValue = it->second; // теоретическая ошибка
-        double currentExpValue = 0; // эксперементальная ошибка
-        double difference = currentTheoryValue - currentExpValue; // разница теор. и эксп.
-        if (difference < 0) difference *= -1;
-
-        while (iterations < maxIterations){
-            iterations++;
-
-            m = genRandomMessage(l);
-            a = coder(m, g, false);
-            e = genRandomErrors(a.size(), p);
-            b = channel(a, e, false);
-            bool check = decoder(b, g, false);
-            int wcount = w(e);
-            if (check && (wcount != 0)) Nerr++;
-
-            currentExpValue = (double)(Nerr)/(double)(iterations); // вычисление новой теор. ошибки
-            difference = currentTheoryValue - currentExpValue; // вычисление новой разницы теор. и эксп.
-            if (difference < 0) difference *= -1;
-            if ((difference < eps)) break;
-        }
-        expGraph.emplace_back(std::vector<double>({p, currentExpValue, (double)iterations / (double)maxIterations}));
-        it++;
+    /// Вывод кодовой книги
+    std::cout << "Code book:" << std::endl;
+    for (auto i: codeBook){
+        std::cout << i.second << " = " << w(i.second) << std::endl;
     }
 
     /// Вывод графика
@@ -78,52 +78,57 @@ int main() {
         std::cerr << "File hasn't opened!" << std::endl;
         exit(-1);
     }
-    auto theoryIt = theoryGraph.begin();
-    int expGraphI = 0;
-    while (theoryIt != theoryGraph.end()){
-        file << theoryIt->first << "=" << theoryIt->second << "=" << expGraph[expGraphI][1] << "=" << expGraph[expGraphI][2] << std::endl;
-        theoryIt++;
-        expGraphI++;
+
+    /// Проверка утв. 2
+    checkStatement2(codeBook);
+
+    /// Мин. раст. кода
+    int d = 10000;
+    for (auto c: codeBook){
+        for (auto b: codeBook){
+            if (c == b) continue;
+            int dtmp = 0;
+            for (int h = 0; h < c.second.size(); h++){
+                if (c.second[h] != b.second[h]) dtmp++;
+            }
+            if (dtmp < d) d = dtmp;
+        }
+    }
+    std::cout << "d = " << d << " - min. code length" << std::endl;
+
+    /// Проверка утв. 3
+    checkStatement3(codeBook, g); // May throw exception, use debugger
+
+    /// График экспериментальной ошибки
+    double eps = 0.1;
+    int it = 0;
+    for (double p = 0.0; p <= 1.001; p += delta){
+        if ((p > 0.9) & (p < 1.0)){
+            std::cout << "1";
+        }
+        int Nerr = 0;
+        double iterations = 9;
+        iterations *= (theoryGraph[it] - theoryGraph[it] * theoryGraph[it]);
+        iterations /= eps * eps;
+        for (int i = 0; i < iterations; i++){
+            auto m = genRandomMessage(l);
+            auto a = coder(m, g, false);
+            auto e = genRandomErrors(a.size(), p);
+            auto b = channel(a, e, false);
+            int scount = w(decoder(b, g, false));
+            int ecount = w(e);
+            if ((scount != 0) && (ecount != 0)) Nerr++;
+
+            m.clear();
+            a.clear();
+            e.clear();
+            b.clear();
+        }
+        file << p << "=" << theoryGraph[it] << "=" << Nerr/iterations << "=" << iterations << std::endl;
+        it++;
     }
     file.close();
     std::cout << "C:\\2\\Graph.txt created" << std::endl;
 
-
-    /// График для альтернативного канала
-    std::vector<std::vector<double>> altChannelGraph;
-    for (p = 0.0; p <= 1.001; p += delta){
-        double Nerr = 0; // количество ошибок
-
-        for (int i = 0; i < 5000; i++){
-            m = genRandomMessage(l);
-            a = coder(m, g, false);
-            e = genRandomErrors(a.size(), p);
-            b = secondChannel(a, e, false);
-            bool check = decoder(b, g, false);
-            int wcount = w(e);
-            if (check && (wcount != 0)) Nerr++;
-        }
-        altChannelGraph.push_back(std::vector<double>({p, Nerr/5000, (double)it->second / (double)maxIterations}));
-        it++;
-    }
-
-    /// Вывод графика для альтернативного канала
-    file = std::ofstream("C:\\2\\altGraph.txt");
-    if (!file.is_open()){
-        std::cerr << "File hasn't opened!" << std::endl;
-        exit(-1);
-    }
-    theoryIt = theoryGraph.begin();
-    expGraphI = 0;
-    while (theoryIt != theoryGraph.end()){
-        file << theoryIt->first << "=" << theoryIt->second << "=" << altChannelGraph[expGraphI][1] << "=" << altChannelGraph[expGraphI][2] << std::endl;
-        theoryIt++;
-        expGraphI++;
-    }
-    file.close();
-    std::cout << "C:\\2\\altGraph.txt created" << std::endl;
-
     theoryGraph.clear();
-    expGraph.clear();
-    altChannelGraph.clear();
 }
